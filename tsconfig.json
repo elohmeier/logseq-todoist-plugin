@@ -21,6 +21,7 @@
 		"incremental": true,
 		"noUncheckedIndexedAccess": true,
 		"baseUrl": "./",
+		"types": ["node"],
 		"paths": {
 			"../*": [
 				"src/*"
@@ -37,6 +38,7 @@
 		"node_modules",
 		"./dist/**/*",
 		"./screenshots",
-		"tailwind.config.js"
+		"tailwind.config.js",
+		"eslint.config.mjs"
 	]
 }

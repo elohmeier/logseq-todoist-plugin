@@ -1,7 +1,7 @@
 import { Task, TodoistApi } from '@doist/todoist-api-typescript'
 import { getDateForPage, getDeadlineDateDay } from 'logseq-dateutils'
 
-import { getIdFromString } from '../helpers'
+import { collectPaginatedResults, getIdFromString } from '../helpers'
 
 interface TaskBlock {
   content: string
@@ -16,20 +16,32 @@ interface TaskBlock {
 
 export const handleComments = async (id: string) => {
   const api = new TodoistApi(logseq.settings!.apiToken as string)
-  const comments = await api.getComments({ taskId: id })
+  const comments = await collectPaginatedResults(async (cursor) =>
+    api.getComments({
+      taskId: id,
+      ...(cursor ? { cursor } : {}),
+    }),
+  )
 
   if (comments.length === 0) return {}
 
   const textComments = comments
-    .filter((comment) => !comment.attachment)
+    .filter((comment) => !comment.fileAttachment)
     .map((comment) => comment.content)
     .join(', ')
   const attachments = comments
-    .filter((comment) => comment.attachment)
-    .map((comment) => {
-      const { fileUrl, fileName } = comment.attachment!
+    .map((comment) => comment.fileAttachment)
+    .filter(
+      (
+        attachment,
+      ): attachment is NonNullable<
+        (typeof comments)[number]['fileAttachment']
+      > => Boolean(attachment?.fileUrl),
+    )
+    .map((attachment) => {
+      const { fileUrl, fileName } = attachment
       // Todoist implements a redirect behind cloudflare, hence no point supporting image markdown
-      return `[${fileName}](${fileUrl})`
+      return `[${fileName ?? 'attachment'}](${fileUrl})`
     })
     .join(', ')
 
@@ -70,18 +82,17 @@ ${getDeadlineDateDay(new Date(task.due.date))}`
         // Handle created at
         const preferredDateFormat = (await logseq.App.getUserConfigs())
           .preferredDateFormat
-        const createdDate = getDateForPage(
-          new Date(task.createdAt),
-          preferredDateFormat,
-        )
+        const createdDate =
+          task.addedAt !== null
+            ? getDateForPage(new Date(task.addedAt), preferredDateFormat)
+            : null
 
         taskMap[task.id] = {
           content: content,
           children: [],
           properties: {
-            ...(logseq.settings!.retrieveAppendCreationDateTime! && {
-              created: createdDate,
-            }),
+            ...(logseq.settings!.retrieveAppendCreationDateTime! &&
+              createdDate && { created: createdDate }),
             ...(logseq.settings!.appendTodoistId! && { todoistid: task.id }),
             ...(comments.comments && { comments: comments.comments }),
             ...(comments.attachments && { attachments: comments.attachments }),
@@ -143,23 +154,40 @@ export const retrieveTasks = async (
           await logseq.UI.showMsg('Please select a default project', 'error')
           return []
         }
-        const tasks = await api.getTasks({
-          projectId: getIdFromString(
-            logseq.settings!.retrieveDefaultProject as string,
-          ),
-        })
+        const tasks = await collectPaginatedResults<Task>((cursor) =>
+          api.getTasks({
+            projectId: getIdFromString(
+              logseq.settings!.retrieveDefaultProject as string,
+            ),
+            ...(cursor ? { cursor } : {}),
+          }),
+        )
         allTasks = [...allTasks, ...tasks]
         break
       }
 
       case 'today': {
-        const tasks = await api.getTasks({ filter: 'today' })
+        const tasks = await collectPaginatedResults<Task>((cursor) =>
+          api.getTasksByFilter({
+            query: 'today',
+            ...(cursor ? { cursor } : {}),
+          }),
+        )
         allTasks = [...allTasks, ...tasks]
         break
       }
 
       case 'custom': {
-        const tasks = await api.getTasks({ filter: customFilter })
+        if (!customFilter) {
+          await logseq.UI.showMsg('Missing custom filter', 'error')
+          return []
+        }
+        const tasks = await collectPaginatedResults<Task>((cursor) =>
+          api.getTasksByFilter({
+            query: customFilter,
+            ...(cursor ? { cursor } : {}),
+          }),
+        )
         allTasks = [...allTasks, ...tasks]
         break
       }
