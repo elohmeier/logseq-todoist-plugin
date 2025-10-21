@@ -63,7 +63,7 @@ export const sendTask = async (
 
   const descriptionParts: string[] = []
   if (logseq.settings!.sendAppendUri) {
-    descriptionParts.push(`[Link to Logseq](logseq://graph/${currGraphName}?block-id=${uuid})`)
+    descriptionParts.push(`[Open in Logseq](logseq://graph/${currGraphName}?block-id=${uuid})`)
   }
 
   if (includePageLink && options?.pageName) {
@@ -95,6 +95,9 @@ export const sendTask = async (
 
   try {
     const res = await api.addTask(sendObj)
+    const taskUrl = `todoist://task?id=${res.id}`
+    await logseq.Editor.upsertBlockProperty(uuid, 'todoistid', res.id)
+    await logseq.Editor.upsertBlockProperty(uuid, 'todoist_url', taskUrl)
     logseq.UI.showMsg('Task sent successfully', 'success', { timeout: 3000 })
     return res
   } catch (error) {
