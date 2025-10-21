@@ -1,6 +1,7 @@
 import { TodoistApi } from "@doist/todoist-api-typescript";
 
 import { getIdFromString, getNameFromString } from "../helpers";
+import { resolveContentTagMappings } from "../tag-mapping";
 import { FormInput } from "./components/SendTask";
 
 export const removeTaskFlags = (content: string): string => {
@@ -184,7 +185,7 @@ export const sendTask = async (
     uuid,
     includePageLink,
   }: FormInput,
-  options?: { pageName?: string },
+  options?: { pageName?: string; allowTagOverrides?: boolean },
 ) => {
   if (logseq.settings!.apiToken === "") {
     logseq.UI.showMsg("Invalid API token", "error");
@@ -205,6 +206,17 @@ export const sendTask = async (
     descriptionParts.push(`Page: [[${options.pageName}]]`);
   }
 
+  const tagMapping = await resolveContentTagMappings(task);
+  if (tagMapping.conflictingProjectTags.length > 0) {
+    await logseq.UI.showMsg(
+      `Multiple project tags detected (${tagMapping.conflictingProjectTags
+        .map((tag) => `#${tag}`)
+        .join(", ")}). Resolve the conflict before sending the task.`,
+      "error",
+    );
+    return;
+  }
+
   const resolved = resolveSendTaskOptions({
     task,
     priority,
@@ -213,13 +225,60 @@ export const sendTask = async (
     deadlineDate,
   });
 
+  const warnings = [...tagMapping.warnings];
+  const allowOverrides = Boolean(options?.allowTagOverrides);
+
+  const projectIdFromForm = project !== "--- ---" ? getIdFromString(project) : "";
+  let resolvedProjectId = projectIdFromForm.length > 0 ? projectIdFromForm : undefined;
+
+  if (tagMapping.project) {
+    if (tagMapping.project.projectId) {
+      if (!resolvedProjectId || allowOverrides) {
+        if (resolvedProjectId && resolvedProjectId !== tagMapping.project.projectId) {
+          warnings.push(
+            `Todoist project overridden by tag #${tagMapping.project.tag}. Using project ID ${tagMapping.project.projectId}.`,
+          );
+        }
+        resolvedProjectId = tagMapping.project.projectId;
+      } else if (resolvedProjectId !== tagMapping.project.projectId) {
+        warnings.push(
+          `Ignoring project tag #${tagMapping.project.tag} because a different project was selected.`,
+        );
+      }
+    } else if (tagMapping.project.projectName) {
+      warnings.push(
+        `Tag #${tagMapping.project.tag} is missing a todoist-project-id:: value. Provide the Todoist project ID to enable automatic mapping.`,
+      );
+    } else {
+      warnings.push(`Tag #${tagMapping.project.tag} is marked for Todoist project mapping but lacks metadata.`);
+    }
+  }
+
+  const labelNamesFromForm = label
+    .filter((item) => item && item !== "--- ---")
+    .map((item) => getNameFromString(item));
+
+  const resolvedLabelNames = new Set(labelNamesFromForm);
+  tagMapping.labelSelections.forEach((selection) => {
+    if (selection.labelNames.length === 0 && selection.labelIds.length > 0) {
+      warnings.push(
+        `Tag #${selection.tag} only specifies Todoist label IDs. Add todoist-label or todoist-label-name properties to map labels by name.`,
+      );
+    }
+
+    selection.labelNames.forEach((name) => {
+      if (name.trim().length === 0) return;
+      resolvedLabelNames.add(name.trim());
+    });
+  });
+
+  const normalizedLabels = Array.from(resolvedLabelNames).filter((name) => name.length > 0);
+
   const sendObj: Parameters<TodoistApi["addTask"]>[0] = {
     content: resolved.content,
     description: descriptionParts.join("\n"),
-    ...(project !== "--- ---" ? { projectId: getIdFromString(project) } : {}),
-    ...(label.length > 0 && label[0] !== "--- ---"
-      ? { labels: label.map((l) => getNameFromString(l)) }
-      : {}),
+    ...(resolvedProjectId ? { projectId: resolvedProjectId } : {}),
+    ...(normalizedLabels.length > 0 ? { labels: normalizedLabels } : {}),
     ...(typeof resolved.priority === "number" ? { priority: resolved.priority } : {}),
     ...(resolved.dueDate
       ? { dueDate: resolved.dueDate }
@@ -228,6 +287,10 @@ export const sendTask = async (
       : {}),
     ...(resolved.deadlineDate ? { deadlineDate: resolved.deadlineDate } : {}),
   };
+
+  if (warnings.length > 0) {
+    await logseq.UI.showMsg(warnings.join("\n"), "warning");
+  }
 
   try {
     const res = await api.addTask(sendObj);

@@ -20,6 +20,28 @@ You can send tasks in 2 ways:
 - If no default project is indicated, there will be a popup to specify the necessary parameters.
 - You can also choose `/Todoist: Send Task (manual)` to trigger the popup.
 
+### Mapping Logseq tags to Todoist projects & labels
+
+You can annotate a block with Logseq tags to drive Todoist project and label assignments. Configure each tag page with Todoist metadata and the plugin will apply it whenever that tag appears on a task block.
+
+1. Create or open the tag page (e.g. `project-bar` for `#project-bar`).
+2. Add the Todoist project ID as a property on the page or a child block:
+   ```
+   todoist-project-id:: 123456789
+   ```
+3. For labels, add the label names (comma separated when multiple):
+   ```
+   todoist-label:: urgent, waiting
+   ```
+
+When a block such as `TODO Draft update #project-bar #waiting` is sent or updated, the plugin:
+
+- overrides the Todoist project with `123456789` (unless you explicitly pick a different project in the send dialog);
+- applies the Todoist labels `urgent` and `waiting`;
+- mirrors the same tags back into Logseq when tasks are retrieved from Todoist.
+
+If multiple project tags are present on the same block or a tag is missing its Todoist metadata, the plugin shows a warning and skips the conflicting assignment. Update the tag page to resolve the warning.
+
 ## Preferences
 
 The plugin settings page contains other preferences to customise how you want tasks to be retrieved or sent to Todoist.

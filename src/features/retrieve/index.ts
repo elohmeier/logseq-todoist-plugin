@@ -4,6 +4,12 @@ import { getDateForPage } from "logseq-dateutils";
 import { collectPaginatedResults, getIdFromString } from "../helpers";
 import { GroupingOption, MetadataOption, QueryConfig, SortingOption } from "../query";
 import { todoistPriorityToMarker } from "../send";
+import {
+  extractTagsFromContent,
+  formatTagReference,
+  lookupTagsForLabels,
+  lookupTagsForProject,
+} from "../tag-mapping";
 import { formatDueDate, formatDueIso, formatLogseqDate, resolveDueDate } from "./due-date";
 import { type RenderPreferences, resolveRenderPreferences } from "./render-options";
 import { createTaskBlock, type TaskBlock } from "./task-block";
@@ -36,6 +42,8 @@ interface DisplayTask {
   dueHasTime: boolean;
   dueDate: Date | null;
   creationDate: string | null;
+  projectTags: string[];
+  labelTags: string[];
 }
 
 export interface RetrieveResult {
@@ -128,7 +136,7 @@ const buildDisplayTasks = async (
 
   const annotations = await Promise.all(tasks.map((task) => loadComments(api, task.id)));
 
-  return tasks.map((task, index): DisplayTask => {
+  const displayTasks = await Promise.all(tasks.map(async (task, index): Promise<DisplayTask> => {
     const annotation = annotations[index]!;
     const dueSource = task.deadline
       ? ({ date: task.deadline.date, datetime: null } as {
@@ -144,6 +152,9 @@ const buildDisplayTasks = async (
       ? getDateForPage(new Date(task.addedAt), preferredDateFormat)
       : null;
 
+    const projectTags = await lookupTagsForProject(task.projectId, context.projects.get(task.projectId)?.name);
+    const labelTags = await lookupTagsForLabels(task.labels, labelNames);
+
     return {
       source: task,
       annotations: annotation,
@@ -157,8 +168,12 @@ const buildDisplayTasks = async (
       dueHasTime,
       dueDate,
       creationDate,
+      projectTags,
+      labelTags,
     };
-  });
+  }));
+
+  return displayTasks;
 };
 
 const makeTaskContent = (displayTask: DisplayTask, preferences: RenderPreferences, config?: QueryConfig) => {
@@ -171,6 +186,31 @@ const makeTaskContent = (displayTask: DisplayTask, preferences: RenderPreference
 
   if (preferences.prependTodoKeyword) {
     content = content.startsWith("TODO ") ? content : `TODO ${content}`;
+  }
+
+  const existingTags = new Set(extractTagsFromContent(content));
+  const tagsToAppend: string[] = [];
+  const seenTags = new Set<string>();
+
+  const considerTag = (tag: string) => {
+    const normalized = tag.trim();
+    if (normalized.length === 0) return;
+    if (existingTags.has(normalized)) return;
+    if (seenTags.has(normalized)) return;
+    seenTags.add(normalized);
+    tagsToAppend.push(normalized);
+  };
+
+  displayTask.projectTags.forEach(considerTag);
+  displayTask.labelTags.forEach(considerTag);
+
+  if (tagsToAppend.length > 0) {
+    const formatted = tagsToAppend
+      .map(formatTagReference)
+      .filter((tag) => tag.length > 0);
+    if (formatted.length > 0) {
+      content = `${content} ${formatted.join(" ")}`.trim();
+    }
   }
 
   if (preferences.embedLabelsInline && displayTask.labelNames.length > 0) {

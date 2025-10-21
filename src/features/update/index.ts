@@ -1,6 +1,7 @@
 import { TodoistApi, TodoistRequestError } from "@doist/todoist-api-typescript";
 
 import { extractPriorityMarker, extractSchedulingMarkers, removeTaskFlags } from "../send";
+import { resolveContentTagMappings } from "../tag-mapping";
 
 const buildDescription = async (
   uuid: string,
@@ -106,6 +107,17 @@ export const updateTaskFromBlock = async (uuid: string): Promise<UpdateTaskResul
   }
 
   const cleanedTask = removeTaskFlags(sanitized);
+  const tagMapping = await resolveContentTagMappings(sanitized);
+  if (tagMapping.conflictingProjectTags.length > 0) {
+    await logseq.UI.showMsg(
+      `Multiple project tags detected (${tagMapping.conflictingProjectTags
+        .map((tag) => `#${tag}`)
+        .join(", ")}). Resolve the conflict before updating.`,
+      "error",
+    );
+    return "error";
+  }
+
   const scheduling = extractSchedulingMarkers(cleanedTask);
   const priorityExtraction = extractPriorityMarker(scheduling.content);
   const content = priorityExtraction.content;
@@ -134,10 +146,44 @@ export const updateTaskFromBlock = async (uuid: string): Promise<UpdateTaskResul
     payload.priority = markerPriority;
   }
 
+  const warnings = [...tagMapping.warnings];
+
+  if (tagMapping.project) {
+    if (tagMapping.project.projectId) {
+      payload.projectId = tagMapping.project.projectId;
+    } else if (tagMapping.project.projectName) {
+      warnings.push(
+        `Tag #${tagMapping.project.tag} is missing a todoist-project-id:: value. Provide the project ID to sync it.`,
+      );
+    } else {
+      warnings.push(`Tag #${tagMapping.project.tag} is marked for Todoist project mapping but lacks metadata.`);
+    }
+  }
+
+  const labelNames = new Set<string>();
+  tagMapping.labelSelections.forEach((selection) => {
+    if (selection.labelNames.length === 0 && selection.labelIds.length > 0) {
+      warnings.push(
+        `Tag #${selection.tag} only specifies Todoist label IDs. Add todoist-label or todoist-label-name to sync by name.`,
+      );
+    }
+    selection.labelNames.forEach((name) => {
+      if (name.trim().length === 0) return;
+      labelNames.add(name.trim());
+    });
+  });
+
+  if (labelNames.size > 0) {
+    payload.labels = Array.from(labelNames);
+  }
+
   try {
     await api.updateTask(todoistId, payload as Parameters<TodoistApi["updateTask"]>[1]);
     const taskUrl = `todoist://task?id=${todoistId}`;
     await logseq.Editor.upsertBlockProperty(uuid, "todoist-url", taskUrl);
+    if (warnings.length > 0) {
+      await logseq.UI.showMsg(warnings.join("\n"), "warning");
+    }
     await logseq.UI.showMsg("Todoist task updated", "success", { timeout: 2000 });
     return "updated";
   } catch (error) {

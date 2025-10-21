@@ -8,13 +8,15 @@ import { retrieveTasks, runQuery } from "./features/retrieve";
 import { insertTasksIntoGraph } from "./features/retrieve/insert-tasks-into-graph";
 import { resolveTaskContent, sendTask } from "./features/send";
 import { SendTask } from "./features/send/components/SendTask";
-import { updateTaskFromBlock,UpdateTaskResult } from "./features/update";
+import { initializeTagMappingCache } from "./features/tag-mapping";
+import { updateTaskFromBlock, UpdateTaskResult } from "./features/update";
 import handleListeners from "./handleListeners";
 import { callSettings } from "./settings";
 
 const main = async () => {
   console.log("logseq-todoist-plugin loaded");
   handleListeners();
+  initializeTagMappingCache();
 
   if (logseq.settings!.apiToken === "") {
     // Check if it's a new install
@@ -142,7 +144,7 @@ const main = async () => {
           uuid,
           includePageLink,
         },
-        { pageName },
+        { pageName, allowTagOverrides: true },
       );
       return;
     }
