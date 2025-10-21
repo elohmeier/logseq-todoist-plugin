@@ -142,7 +142,7 @@ const main = async () => {
           task: content,
           project: logseq.settings!.sendDefaultProject as string,
           label: [logseq.settings!.sendDefaultLabel as string],
-          due: logseq.settings!.sendDefaultDeadline ? 'today' : '',
+          due: '',
           priority: '1',
           uuid: e.uuid,
           includePageLink,

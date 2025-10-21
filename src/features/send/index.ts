@@ -13,17 +13,26 @@ export const removeTaskFlags = (content: string): string => {
   return content
 }
 
+const SCHEDULED_REGEX = /^\s*SCHEDULED:\s*<(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/i
 const DEADLINE_REGEX = /^\s*DEADLINE:\s*<(\d{4})-(\d{2})-(\d{2})/i
 
-export const extractDeadline = (content: string) => {
+export const extractSchedulingMarkers = (content: string) => {
+  let scheduledDate: string | null = null
   let deadlineDate: string | null = null
   const cleanedLines: string[] = []
 
   for (const line of content.split(/\n+/)) {
     const trimmed = line.trimEnd()
-    const match = trimmed.match(DEADLINE_REGEX)
-    if (match) {
-      const [, year, month, day] = match
+    const scheduledMatch = trimmed.match(SCHEDULED_REGEX)
+    if (scheduledMatch) {
+      const [, year, month, day] = scheduledMatch
+      scheduledDate = `${year}-${month}-${day}`
+      continue
+    }
+
+    const deadlineMatch = trimmed.match(DEADLINE_REGEX)
+    if (deadlineMatch) {
+      const [, year, month, day] = deadlineMatch
       deadlineDate = `${year}-${month}-${day}`
       continue
     }
@@ -33,6 +42,7 @@ export const extractDeadline = (content: string) => {
   const cleanedContent = cleanedLines.join('\n').trim()
   return {
     content: cleanedContent.length > 0 ? cleanedContent : content.trim(),
+    scheduledDate,
     deadlineDate,
   }
 }
@@ -61,29 +71,26 @@ export const sendTask = async (
   }
 
   const cleanedTask = removeTaskFlags(task)
-  const { content: taskWithoutDeadline, deadlineDate } = extractDeadline(cleanedTask)
+  const {
+    content: taskWithoutMarkers,
+    scheduledDate,
+    deadlineDate,
+  } = extractSchedulingMarkers(cleanedTask)
 
   const sendObj: Parameters<TodoistApi['addTask']>[0] = {
-    content: taskWithoutDeadline,
+    content: taskWithoutMarkers,
     description: descriptionParts.join('\n'),
-  }
-
-  if (project !== '--- ---') {
-    sendObj.projectId = getIdFromString(project)
-  }
-
-  if (label.length > 0 && label[0] !== '--- ---') {
-    sendObj.labels = label.map((l) => getNameFromString(l))
-  }
-
-  if (priority) {
-    sendObj.priority = parseInt(priority)
-  }
-
-  if (deadlineDate) {
-    sendObj.deadlineDate = deadlineDate
-  } else if (due !== '') {
-    sendObj.dueString = due
+    ...(project !== '--- ---' ? { projectId: getIdFromString(project) } : {}),
+    ...(label.length > 0 && label[0] !== '--- ---'
+      ? { labels: label.map((l) => getNameFromString(l)) }
+      : {}),
+    ...(priority ? { priority: parseInt(priority) } : {}),
+    ...(scheduledDate
+      ? { dueDate: scheduledDate }
+      : due !== ''
+        ? { dueString: due }
+        : {}),
+    ...(deadlineDate ? { deadlineDate } : {}),
   }
 
   try {

@@ -126,10 +126,19 @@ export const formatDueIso = (due: { date?: string | null; datetime?: string | nu
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
-export const formatLogseqDeadline = (date: Date): string => {
+const pad = (value: number) => `${value}`.padStart(2, '0')
+
+export const formatLogseqDate = (date: Date, includeTime: boolean): string => {
   const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
   const weekday = WEEKDAYS[date.getDay()]
-  return `<${year}-${month}-${day} ${weekday}>`
+
+  if (!includeTime) {
+    return `<${year}-${month}-${day} ${weekday}>`
+  }
+
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  return `<${year}-${month}-${day} ${weekday} ${hours}:${minutes}>`
 }

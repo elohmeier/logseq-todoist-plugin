@@ -8,7 +8,7 @@ import {
   QueryConfig,
   SortingOption,
 } from '../query'
-import { formatDueDate, formatDueIso, formatLogseqDeadline, resolveDueDate } from './due-date'
+import { formatDueDate, formatDueIso, formatLogseqDate, resolveDueDate } from './due-date'
 import { type RenderPreferences,resolveRenderPreferences } from './render-options'
 import { createTaskBlock, type TaskBlock } from './task-block'
 import {
@@ -37,6 +37,7 @@ interface DisplayTask {
   dueIso: string | null
   dueHeading: string | null
   dueFlag: ReturnType<typeof formatDueDate>['flag']
+  dueHasTime: boolean
   dueDate: Date | null
   creationDate: string | null
 }
@@ -148,6 +149,7 @@ const buildDisplayTasks = async (
         })
       : task.due
     const dueDate = resolveDueDate(dueSource)
+    const dueHasTime = Boolean(dueSource?.datetime)
     const duePresentation = formatDueDate(dueSource)
     const labelNames = resolveLabelNames(task.labels, context.labels)
     const creationDate =
@@ -165,6 +167,7 @@ const buildDisplayTasks = async (
       dueIso: formatDueIso(dueSource),
       dueHeading: duePresentation.heading,
       dueFlag: duePresentation.flag,
+      dueHasTime,
       dueDate,
       creationDate,
     }
@@ -202,7 +205,14 @@ const makeTaskContent = (displayTask: DisplayTask, preferences: RenderPreference
   }
 
   if (showDue && displayTask.dueDate) {
-    content = `${content}\nDEADLINE: ${formatLogseqDeadline(displayTask.dueDate)}`
+    content = `${content}\nSCHEDULED: ${formatLogseqDate(displayTask.dueDate, displayTask.dueHasTime)}`
+  }
+
+  if (showDue && displayTask.source.deadline?.date) {
+    const deadline = resolveDueDate({ date: displayTask.source.deadline.date })
+    if (deadline) {
+      content = `${content}\nDEADLINE: ${formatLogseqDate(deadline, false)}`
+    }
   }
 
   return content

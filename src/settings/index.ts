@@ -37,13 +37,6 @@ export const callSettings = async (projects: string[], labels: string[]) => {
       description: 'Default label to label tasks.',
     },
     {
-      key: 'sendDefaultDeadline',
-      type: 'boolean',
-      default: true,
-      title: 'Default Deadline',
-      description: 'If set to true, default deadline will be set to today.',
-    },
-    {
       key: 'sendAppendUri',
       type: 'boolean',
       default: true,

@@ -50,7 +50,6 @@ export const SendTask = ({
   const defaultProject = (settings.sendDefaultProject as string) ?? '--- ---'
   const defaultLabel = (settings.sendDefaultLabel as string) ?? '--- ---'
   const defaultLabels = defaultLabel !== '--- ---' ? [defaultLabel] : []
-  const defaultDue = settings.sendDefaultDeadline ? 'today' : ''
   const includePageLinkDefault = Boolean(settings.sendIncludePageLink)
 
   const {
@@ -65,7 +64,7 @@ export const SendTask = ({
       label: defaultLabels,
       priority: '1',
       uuid: uuid,
-      due: defaultDue,
+      due: '',
       includePageLink: includePageLinkDefault,
     },
   })
