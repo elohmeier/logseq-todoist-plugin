@@ -96,8 +96,94 @@ export const resolveTaskContent = (
   return "";
 };
 
+export interface SendTaskResolutionInput {
+  task: string;
+  priority?: string;
+  dueString?: string;
+  scheduledDate?: string;
+  deadlineDate?: string;
+}
+
+export interface ResolvedTaskOptions {
+  content: string;
+  priority?: number;
+  dueDate?: string;
+  dueString?: string;
+  deadlineDate?: string;
+}
+
+export const resolveSendTaskOptions = ({
+  task,
+  priority,
+  dueString,
+  scheduledDate,
+  deadlineDate,
+}: SendTaskResolutionInput): ResolvedTaskOptions => {
+  const cleanedTask = removeTaskFlags(task);
+  const schedulingFromContent = extractSchedulingMarkers(cleanedTask);
+  const priorityExtraction = extractPriorityMarker(schedulingFromContent.content);
+  const finalContent = priorityExtraction.content;
+  const markerPriority = priorityExtraction.priority;
+
+  const normalizedPriority = priority?.toString().trim() ?? "";
+  const manualPriority =
+    normalizedPriority !== "" ? Number.parseInt(normalizedPriority, 10) : undefined;
+  const resolvedPriority =
+    manualPriority && Number.isFinite(manualPriority) ? manualPriority : markerPriority ?? undefined;
+
+  const hasScheduledOverride = typeof scheduledDate !== "undefined";
+  const manualScheduled = (scheduledDate ?? "").trim();
+  const resolvedScheduledDate = hasScheduledOverride
+    ? manualScheduled === ""
+      ? undefined
+      : manualScheduled
+    : schedulingFromContent.scheduledDate ?? undefined;
+
+  const hasDeadlineOverride = typeof deadlineDate !== "undefined";
+  const manualDeadline = (deadlineDate ?? "").trim();
+  const resolvedDeadlineDate = hasDeadlineOverride
+    ? manualDeadline === ""
+      ? undefined
+      : manualDeadline
+    : schedulingFromContent.deadlineDate ?? undefined;
+
+  const hasDueOverride = typeof dueString !== "undefined";
+  const manualDue = (dueString ?? "").trim();
+  const resolvedDueString = hasDueOverride ? manualDue : "";
+
+  const result: ResolvedTaskOptions = {
+    content: finalContent,
+  };
+
+  if (resolvedPriority && Number.isFinite(resolvedPriority)) {
+    result.priority = resolvedPriority;
+  }
+
+  if (resolvedScheduledDate) {
+    result.dueDate = resolvedScheduledDate;
+  } else if (resolvedDueString !== "") {
+    result.dueString = resolvedDueString;
+  }
+
+  if (resolvedDeadlineDate) {
+    result.deadlineDate = resolvedDeadlineDate;
+  }
+
+  return result;
+};
+
 export const sendTask = async (
-  { task, project, label, priority, due, uuid, includePageLink }: FormInput,
+  {
+    task,
+    project,
+    label,
+    priority,
+    dueString,
+    scheduledDate,
+    deadlineDate,
+    uuid,
+    includePageLink,
+  }: FormInput,
   options?: { pageName?: string },
 ) => {
   if (logseq.settings!.apiToken === "") {
@@ -119,32 +205,28 @@ export const sendTask = async (
     descriptionParts.push(`Page: [[${options.pageName}]]`);
   }
 
-  const cleanedTask = removeTaskFlags(task);
-  const {
-    content: taskWithoutMarkers,
+  const resolved = resolveSendTaskOptions({
+    task,
+    priority,
+    dueString,
     scheduledDate,
     deadlineDate,
-  } = extractSchedulingMarkers(cleanedTask);
-  const { content: finalContent, priority: markerPriority } = extractPriorityMarker(taskWithoutMarkers);
+  });
 
   const sendObj: Parameters<TodoistApi["addTask"]>[0] = {
-    content: finalContent,
+    content: resolved.content,
     description: descriptionParts.join("\n"),
     ...(project !== "--- ---" ? { projectId: getIdFromString(project) } : {}),
     ...(label.length > 0 && label[0] !== "--- ---"
       ? { labels: label.map((l) => getNameFromString(l)) }
       : {}),
-    ...(markerPriority
-      ? { priority: markerPriority }
-      : priority && priority !== ""
-      ? { priority: parseInt(priority) }
+    ...(typeof resolved.priority === "number" ? { priority: resolved.priority } : {}),
+    ...(resolved.dueDate
+      ? { dueDate: resolved.dueDate }
+      : resolved.dueString
+      ? { dueString: resolved.dueString }
       : {}),
-    ...(scheduledDate
-      ? { dueDate: scheduledDate }
-      : due !== ""
-      ? { dueString: due }
-      : {}),
-    ...(deadlineDate ? { deadlineDate } : {}),
+    ...(resolved.deadlineDate ? { deadlineDate: resolved.deadlineDate } : {}),
   };
 
   try {

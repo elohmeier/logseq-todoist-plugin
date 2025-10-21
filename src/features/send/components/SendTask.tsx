@@ -15,11 +15,14 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import { THEME } from "../../../constants";
-import { sendTask } from "..";
+import {
+  resolveSendTaskOptions,
+  sendTask,
+} from "..";
 
 interface SendTaskProps {
   content: string;
@@ -33,8 +36,10 @@ export interface FormInput {
   task: string;
   project: string;
   label: string[];
-  priority: string;
-  due: string;
+  priority?: string;
+  dueString?: string;
+  scheduledDate?: string;
+  deadlineDate?: string;
   uuid: string;
   includePageLink: boolean;
 }
@@ -52,6 +57,15 @@ export const SendTask = ({
   const defaultLabels = defaultLabel !== "--- ---" ? [defaultLabel] : [];
   const includePageLinkDefault = Boolean(settings.sendIncludePageLink);
 
+  const detectedDefaults = useMemo(() => {
+    const resolved = resolveSendTaskOptions({ task: content });
+    return {
+      priority: resolved.priority ? String(resolved.priority) : "",
+      scheduledDate: resolved.dueDate ?? "",
+      deadlineDate: resolved.deadlineDate ?? "",
+    };
+  }, [content]);
+
   const {
     control,
     handleSubmit,
@@ -62,21 +76,31 @@ export const SendTask = ({
       task: content.trim(),
       project: projects.includes(defaultProject) ? defaultProject : "--- ---",
       label: defaultLabels,
-      priority: "",
+      priority: detectedDefaults.priority,
       uuid: uuid,
-      due: "",
+      dueString: "",
+      scheduledDate: detectedDefaults.scheduledDate,
+      deadlineDate: detectedDefaults.deadlineDate,
       includePageLink: includePageLinkDefault,
     },
   });
 
   const submitTask = useCallback(
     (data: FormInput) => {
-      sendTask(data, { pageName });
+      const payload: FormInput = {
+        ...data,
+        priority: data.priority ?? "",
+        dueString: data.dueString ?? "",
+        scheduledDate: data.scheduledDate ?? "",
+        deadlineDate: data.deadlineDate ?? "",
+      };
+
+      sendTask(payload, { pageName });
       logseq.UI.showMsg("Task sent to Todoist", "success", { timeout: 3000 });
       reset();
       logseq.hideMainUI();
     },
-    [uuid, pageName],
+    [uuid, pageName, reset],
   );
 
   return (
@@ -153,12 +177,34 @@ export const SendTask = ({
               />
               <Controller
                 control={control}
-                name="due"
+                name="scheduledDate"
                 render={({ field }) => (
                   <TextInput
                     {...field}
-                    label="Deadline"
-                    placeholder="Enter deadline (e.g. Next Monday)"
+                    label="Scheduled Date"
+                    placeholder="YYYY-MM-DD"
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="deadlineDate"
+                render={({ field }) => (
+                  <TextInput
+                    {...field}
+                    label="Deadline Date"
+                    placeholder="YYYY-MM-DD"
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="dueString"
+                render={({ field }) => (
+                  <TextInput
+                    {...field}
+                    label="Due (natural language)"
+                    placeholder="e.g. Next Monday"
                   />
                 )}
               />
