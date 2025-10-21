@@ -10,10 +10,12 @@
     "main": "dist/index.html"
   },
   "scripts": {
-    "dev": "npx vite",
-    "build": "npx eslint . --fix && npx tsc && npx vite build",
-    "test": "npx vitest run",
-    "preview": "npx vite preview",
+    "dev": "vite",
+    "build": "eslint . --fix && tsc && vite build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "preview": "vite preview",
     "prepare": "husky"
   },
   "release": {
@@ -46,21 +48,17 @@
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@types/eslint": "^9.6.1",
-    "@types/eslint-config-prettier": "^6.11.3",
     "@types/node": "^24.8.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@typescript-eslint/eslint-plugin": "^8.46.1",
     "@typescript-eslint/parser": "^8.46.1",
     "eslint": "^9.38.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "husky": "^9.1.7",
     "postcss": "^8.5.6",
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",
-    "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.1",
     "vite": "^7.1.11",

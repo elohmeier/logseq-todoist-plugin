@@ -1,0 +1,46 @@
+$schema: https://github.com/Goldziher/ai-rulez/schema/ai-rules-v2.schema.json
+metadata:
+  description: A Logseq plugin that integrates with Todoist for bidirectional task synchronization, allowing users to retrieve tasks from Todoist projects and filters into Logseq blocks, send Logseq tasks to Todoist with scheduling and priority support, and update tasks between both platforms while maintaining metadata like comments and attachments.
+  name: Logseq Todoist Plugin
+  version: 1.0.0
+presets:
+  - popular
+rules:
+  - content: Maintain strict TypeScript. No 'any' types unless necessary. Use proper Logseq SDK types (@logseq/libs).
+    name: TypeScript
+    priority: critical
+  - content: Wrap Todoist API calls in try-catch. Show user-friendly errors via logseq.UI.showMsg(). Never expose API tokens.
+    name: Error Handling
+    priority: high
+  - content: Write Vitest tests for all features. Follow existing test patterns. Test edge cases for sync operations.
+    name: Testing
+    priority: high
+  - content: After making any code changes, always run 'bun run build' to ensure the changes compile successfully. Fix any build errors before proceeding.
+    name: Build After Changes
+    priority: high
+sections:
+  - content: |-
+      ## Development
+
+      ```bash
+      bun install
+      bun run build
+      bun test
+      ```
+
+      Load in Logseq → Settings → Plugins → Load unpacked plugin
+
+      ## Structure
+      - `src/features/` - retrieve, send, update, query
+      - `src/settings/` - Plugin config
+      - `tests/` - Vitest tests
+    name: Setup
+    priority: high
+  - content: |-
+      ## Relevant Sources
+
+      - Todoist API TypeScript: `$HOME/repos/github.com/Doist/todoist-api-typescript`
+      - Logseq Libs: `$HOME/repos/github.com/logseq/logseq/libs`
+      - Logseq LSPlugin: `$HOME/repos/github.com/logseq/logseq/libs/src/LSPlugin.ts`
+    name: Sources
+    priority: medium

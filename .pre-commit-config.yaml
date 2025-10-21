@@ -1,0 +1,54 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.34.0
+    hooks:
+      - id: check-github-workflows
+        args: ["--verbose"]
+        stages: [pre-push]
+      - id: check-jsonschema
+        name: Validate ai-rulez.yaml schema
+        args: [
+          "--schemafile",
+          "https://raw.githubusercontent.com/Goldziher/ai-rulez/main/schema/ai-rules-v2.schema.json",
+          "ai-rulez.yaml",
+        ]
+        files: ^ai-rulez\.yaml$
+
+  - repo: local
+    hooks:
+      - id: vitest
+        name: Run tests
+        entry: bun test
+        language: system
+        pass_filenames: false
+        files: \.(ts|tsx)$
+        stages: [pre-push]
+
+  - repo: local
+    hooks:
+      - id: dprint
+        name: Format files with dprint
+        entry: dprint fmt --allow-no-files
+        language: system
+        pass_filenames: true
+        files: \.(json|md|yaml|yml|ts|tsx|css)$
+
+      - id: eslint
+        name: Lint files with ESLint
+        entry: bun run lint
+        language: system
+        pass_filenames: false
+        files: \.(ts|tsx|js|jsx)$
+        stages: [pre-push]
+
+      - id: ai-rulez-generate
+        name: Generate AGENTS.md/CLAUDE.md from ai-rulez.yaml
+        entry: uvx ai-rulez generate
+        language: system
+        pass_filenames: false
+        files: ^ai-rulez\.yaml$
