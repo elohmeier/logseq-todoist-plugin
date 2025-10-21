@@ -1,6 +1,10 @@
 import { TodoistApi } from '@doist/todoist-api-typescript'
 
-import { extractSchedulingMarkers, removeTaskFlags } from '../send'
+import {
+  extractPriorityMarker,
+  extractSchedulingMarkers,
+  removeTaskFlags,
+} from '../send'
 
 const buildDescription = async (
   uuid: string,
@@ -96,7 +100,12 @@ export const updateTaskFromBlock = async (uuid: string) => {
   }
 
   const cleanedTask = removeTaskFlags(sanitized)
-  const { content, scheduledDate, deadlineDate } = extractSchedulingMarkers(cleanedTask)
+  const scheduling = extractSchedulingMarkers(cleanedTask)
+  const priorityExtraction = extractPriorityMarker(scheduling.content)
+  const content = priorityExtraction.content
+  const scheduledDate = scheduling.scheduledDate
+  const deadlineDate = scheduling.deadlineDate
+  const markerPriority = priorityExtraction.priority
 
   const payload: Record<string, unknown> = {
     content,
@@ -113,6 +122,10 @@ export const updateTaskFromBlock = async (uuid: string) => {
     payload.deadlineDate = deadlineDate
   } else {
     payload.deadlineDate = null
+  }
+
+  if (markerPriority) {
+    payload.priority = markerPriority
   }
 
   try {

@@ -8,6 +8,7 @@ import {
   QueryConfig,
   SortingOption,
 } from '../query'
+import { todoistPriorityToMarker } from '../send'
 import { formatDueDate, formatDueIso, formatLogseqDate, resolveDueDate } from './due-date'
 import { type RenderPreferences,resolveRenderPreferences } from './render-options'
 import { createTaskBlock, type TaskBlock } from './task-block'
@@ -175,7 +176,12 @@ const buildDisplayTasks = async (
 }
 
 const makeTaskContent = (displayTask: DisplayTask, preferences: RenderPreferences, config?: QueryConfig) => {
-  let content = displayTask.source.content
+  let content = displayTask.source.content.trim()
+
+  const priorityMarker = todoistPriorityToMarker(displayTask.source.priority)
+  if (priorityMarker && !content.startsWith(`[#${priorityMarker}]`)) {
+    content = `[#${priorityMarker}] ${content}`.trim()
+  }
 
   if (preferences.prependTodoKeyword) {
     content = content.startsWith('TODO ') ? content : `TODO ${content}`

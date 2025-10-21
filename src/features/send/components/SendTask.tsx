@@ -62,7 +62,7 @@ export const SendTask = ({
       task: content.trim(),
       project: projects.includes(defaultProject) ? defaultProject : '--- ---',
       label: defaultLabels,
-      priority: '1',
+      priority: '',
       uuid: uuid,
       due: '',
       includePageLink: includePageLinkDefault,

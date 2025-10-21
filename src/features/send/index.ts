@@ -13,8 +13,22 @@ export const removeTaskFlags = (content: string): string => {
   return content
 }
 
+const PRIORITY_REGEX = /\[#([A-D])]/i
 const SCHEDULED_REGEX = /^\s*SCHEDULED:\s*<(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/i
 const DEADLINE_REGEX = /^\s*DEADLINE:\s*<(\d{4})-(\d{2})-(\d{2})/i
+
+const PRIORITY_TO_TODOIST: Record<string, number> = {
+  A: 4,
+  B: 3,
+  C: 2,
+  D: 1,
+}
+
+const TODOIST_PRIORITY_TO_MARKER: Record<number, string> = {
+  4: 'A',
+  3: 'B',
+  2: 'C',
+}
 
 export const extractSchedulingMarkers = (content: string) => {
   let scheduledDate: string | null = null
@@ -47,6 +61,24 @@ export const extractSchedulingMarkers = (content: string) => {
   }
 }
 
+export const extractPriorityMarker = (content: string) => {
+  let detected: number | null = null
+  const updated = content.replace(PRIORITY_REGEX, (_, marker: string) => {
+    const upper = marker.toUpperCase()
+    detected = PRIORITY_TO_TODOIST[upper] ?? null
+    return ''
+  })
+
+  return {
+    content: updated.trim(),
+    priority: detected,
+  }
+}
+
+export const todoistPriorityToMarker = (priority: number): string | null => {
+  return TODOIST_PRIORITY_TO_MARKER[priority] ?? null
+}
+
 export const sendTask = async (
   { task, project, label, priority, due, uuid, includePageLink }: FormInput,
   options?: { pageName?: string },
@@ -76,15 +108,21 @@ export const sendTask = async (
     scheduledDate,
     deadlineDate,
   } = extractSchedulingMarkers(cleanedTask)
+  const { content: finalContent, priority: markerPriority } =
+    extractPriorityMarker(taskWithoutMarkers)
 
   const sendObj: Parameters<TodoistApi['addTask']>[0] = {
-    content: taskWithoutMarkers,
+    content: finalContent,
     description: descriptionParts.join('\n'),
     ...(project !== '--- ---' ? { projectId: getIdFromString(project) } : {}),
     ...(label.length > 0 && label[0] !== '--- ---'
       ? { labels: label.map((l) => getNameFromString(l)) }
       : {}),
-    ...(priority ? { priority: parseInt(priority) } : {}),
+    ...(markerPriority
+      ? { priority: markerPriority }
+      : priority && priority !== ''
+        ? { priority: parseInt(priority) }
+        : {}),
     ...(scheduledDate
       ? { dueDate: scheduledDate }
       : due !== ''

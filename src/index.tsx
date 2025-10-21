@@ -144,7 +144,7 @@ const main = async () => {
           project: logseq.settings!.sendDefaultProject as string,
           label: [logseq.settings!.sendDefaultLabel as string],
           due: '',
-          priority: '1',
+          priority: '',
           uuid: e.uuid,
           includePageLink,
         },
