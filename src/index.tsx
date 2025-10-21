@@ -8,6 +8,7 @@ import { retrieveTasks, runQuery } from './features/retrieve'
 import { insertTasksIntoGraph } from './features/retrieve/insert-tasks-into-graph'
 import { sendTask } from './features/send'
 import { SendTask } from './features/send/components/SendTask'
+import { updateTaskFromBlock } from './features/update'
 import handleListeners from './handleListeners'
 import { callSettings } from './settings'
 
@@ -171,6 +172,10 @@ const main = async () => {
       )
       logseq.showMainUI()
     }
+  })
+
+  logseq.Editor.registerSlashCommand('Todoist: Update Task', async (e) => {
+    await updateTaskFromBlock(e.uuid)
   })
 }
 
