@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "npx vite",
     "build": "npx eslint . --fix && npx tsc && npx vite build",
+    "test": "npx vitest run",
     "preview": "npx vite preview",
     "prepare": "husky"
   },
@@ -36,6 +37,8 @@
     "@mantine/core": "^8.3.5",
     "@mantine/hooks": "^8.3.5",
     "logseq-dateutils": "^2.1.2",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.65.0"
@@ -62,6 +65,7 @@
     "typescript-eslint": "^8.46.1",
     "vite": "^7.1.11",
     "vite-plugin-logseq": "^1.1.2",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
   }
 }

@@ -1,22 +1,35 @@
-import { Task } from '@doist/todoist-api-typescript'
-
 import { getNameFromString } from '../helpers'
-import { buildRootTasks } from '.'
+import type { TaskBlock } from './task-block'
 
-export const insertTasksIntoGraph = async (tasks: Task[], uuid: string) => {
-  const rootTasks = await buildRootTasks(tasks)
-  if (rootTasks.length === 0) {
+interface InsertOptions {
+  title?: string
+}
+
+export const insertTasksIntoGraph = async (
+  blocks: TaskBlock[],
+  uuid: string,
+  options?: InsertOptions,
+) => {
+  if (blocks.length === 0) {
     return
   }
 
-  await logseq.Editor.insertBatchBlock(uuid, rootTasks, { before: true })
+  await logseq.Editor.insertBatchBlock(uuid, blocks, { before: true })
 
-  if (logseq.settings!.projectNameAsParentBlk) {
-    await logseq.Editor.updateBlock(
-      uuid,
-      getNameFromString(logseq.settings!.retrieveDefaultProject as string),
-    )
-  } else {
-    await logseq.Editor.removeBlock(uuid)
+  const desiredTitle = options?.title?.trim()
+
+  if (desiredTitle && desiredTitle.length > 0) {
+    await logseq.Editor.updateBlock(uuid, desiredTitle)
+    return
   }
+
+  if (logseq.settings?.projectNameAsParentBlk) {
+    const fallback = getNameFromString(logseq.settings!.retrieveDefaultProject as string)
+    if (fallback && fallback.length > 0) {
+      await logseq.Editor.updateBlock(uuid, fallback)
+      return
+    }
+  }
+
+  await logseq.Editor.removeBlock(uuid)
 }

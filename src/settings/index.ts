@@ -52,6 +52,14 @@ export const callSettings = async (projects: string[], labels: string[]) => {
         'If set to true, all tasks sent to Todoist will have the Logseq URI appended.',
     },
     {
+      key: 'sendIncludePageLink',
+      type: 'boolean',
+      default: false,
+      title: 'Include Current Page Name',
+      description:
+        'Adds the current page name to the task description to preserve context inside Todoist.',
+    },
+    {
       key: '',
       type: 'heading',
       default: '',

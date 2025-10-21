@@ -13,14 +13,10 @@ export const removeTaskFlags = (content: string): string => {
   return content
 }
 
-export const sendTask = async ({
-  task,
-  project,
-  label,
-  priority,
-  due,
-  uuid,
-}: FormInput) => {
+export const sendTask = async (
+  { task, project, label, priority, due, uuid, includePageLink }: FormInput,
+  options?: { pageName?: string },
+) => {
   if (logseq.settings!.apiToken === '') {
     logseq.UI.showMsg('Invalid API token', 'error')
     return
@@ -31,13 +27,20 @@ export const sendTask = async ({
   const currGraph = await logseq.App.getCurrentGraph()
   const currGraphName = currGraph?.name
 
+  const descriptionParts: string[] = []
+  if (logseq.settings!.sendAppendUri) {
+    descriptionParts.push(`[Link to Logseq](logseq://graph/${currGraphName}?block-id=${uuid})`)
+  }
+
+  if (includePageLink && options?.pageName) {
+    descriptionParts.push(`Page: [[${options.pageName}]]`)
+  }
+
   const sendObj = {
     content: removeTaskFlags(task),
-    description: logseq.settings!.sendAppendUri
-      ? `[Link to Logseq](logseq://graph/${currGraphName}?block-id=${uuid})`
-      : '',
+    description: descriptionParts.join('\n'),
     ...(project !== '--- ---' && { projectId: getIdFromString(project) }),
-    ...(label[0] !== '--- ---' && {
+    ...(label.length > 0 && label[0] !== '--- ---' && {
       labels: label.map((l) => getNameFromString(l)),
     }),
     ...(priority && { priority: parseInt(priority) }),

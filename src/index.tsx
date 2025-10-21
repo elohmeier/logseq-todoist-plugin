@@ -3,7 +3,8 @@ import '@logseq/libs'
 import { createRoot } from 'react-dom/client'
 
 import { getAllLabels, getAllProjects } from './features/helpers'
-import { retrieveTasks } from './features/retrieve'
+import { parseQuery } from './features/query'
+import { retrieveTasks, runQuery } from './features/retrieve'
 import { insertTasksIntoGraph } from './features/retrieve/insert-tasks-into-graph'
 import { sendTask } from './features/send'
 import { SendTask } from './features/send/components/SendTask'
@@ -30,15 +31,27 @@ const main = async () => {
 
   // RETRIEVE TASKS
   logseq.Editor.registerSlashCommand('Todoist: Retrieve Tasks', async (e) => {
-    const tasks = await retrieveTasks('default')
-    if (tasks.length > 0) await insertTasksIntoGraph(tasks, e.uuid)
+    const msgKey = await logseq.UI.showMsg('Getting tasks...')
+    const result = await retrieveTasks('default')
+    logseq.UI.closeMsg(msgKey)
+    if (result.blocks.length === 0) {
+      await logseq.UI.showMsg('No tasks available for the default project.', 'warning')
+      return
+    }
+    await insertTasksIntoGraph(result.blocks, e.uuid)
   })
 
   logseq.Editor.registerSlashCommand(
     "Todoist: Retrieve Today's Tasks",
     async (e) => {
-      const tasks = await retrieveTasks('today')
-      if (tasks.length > 0) await insertTasksIntoGraph(tasks, e.uuid)
+      const msgKey = await logseq.UI.showMsg('Getting tasks...')
+      const result = await retrieveTasks('today')
+      logseq.UI.closeMsg(msgKey)
+      if (result.blocks.length === 0) {
+        await logseq.UI.showMsg('No tasks due today.', 'warning')
+        return
+      }
+      await insertTasksIntoGraph(result.blocks, e.uuid, { title: 'Todoist · Today' })
     },
   )
 
@@ -46,15 +59,32 @@ const main = async () => {
     'Todoist: Retrieve Custom Filter',
     async (e) => {
       const content = await logseq.Editor.getEditingBlockContent()
-      if (content.length === 0) {
+      if (content.trim().length === 0) {
         logseq.UI.showMsg('Cannot retrieve with empty filter', 'error')
         return
       }
-      const tasks = await retrieveTasks('custom', content)
-      if (tasks.length > 0) {
-        await logseq.Editor.updateBlock(e.uuid, '') // Clear block first since it contains the filter
-        await insertTasksIntoGraph(tasks, e.uuid)
+
+      const parseResult = parseQuery(content)
+      if (!parseResult.ok) {
+        await logseq.UI.showMsg(parseResult.error, 'error')
+        return
       }
+
+      const msgKey = await logseq.UI.showMsg('Running Todoist query...')
+      const result = await runQuery(parseResult.config)
+      logseq.UI.closeMsg(msgKey)
+
+      if (parseResult.warnings.length > 0) {
+        await logseq.UI.showMsg(parseResult.warnings.join('\n'), 'warning')
+      }
+
+      if (result.blocks.length === 0) {
+        await logseq.UI.showMsg('No tasks matched the query.', 'warning')
+        return
+      }
+
+      await logseq.Editor.upsertBlockProperty(e.uuid, 'todoist_query', content)
+      await insertTasksIntoGraph(result.blocks, e.uuid, { title: result.title })
     },
   )
 
@@ -71,6 +101,7 @@ const main = async () => {
         logseq.UI.showMsg('Unable to send empty task', 'error')
         return
       }
+      const page = await logseq.Editor.getCurrentPage()
       const msgKey = await logseq.UI.showMsg(
         'Getting projects and labels',
         'success',
@@ -86,6 +117,7 @@ const main = async () => {
           projects={allProjects}
           labels={allLabels}
           uuid={e.uuid}
+          pageName={(page?.originalName ?? page?.name) as string | undefined}
         />,
       )
       logseq.showMainUI()
@@ -99,16 +131,24 @@ const main = async () => {
       return
     }
 
+    const page = await logseq.Editor.getCurrentPage()
+    const pageName = (page?.originalName ?? page?.name) as string | undefined
+    const includePageLink = Boolean(logseq.settings?.sendIncludePageLink)
+
     // If default project set, don't show popup
     if (logseq.settings!.sendDefaultProject !== '--- ---') {
-      await sendTask({
-        task: content,
-        project: logseq.settings!.sendDefaultProject as string,
-        label: [logseq.settings!.sendDefaultLabel as string],
-        due: logseq.settings!.sendDefaultDeadline ? 'today' : '',
-        priority: '1',
-        uuid: e.uuid,
-      })
+      await sendTask(
+        {
+          task: content,
+          project: logseq.settings!.sendDefaultProject as string,
+          label: [logseq.settings!.sendDefaultLabel as string],
+          due: logseq.settings!.sendDefaultDeadline ? 'today' : '',
+          priority: '1',
+          uuid: e.uuid,
+          includePageLink,
+        },
+        { pageName },
+      )
     } else {
       // If no default project set, show popup
       const msgKey = await logseq.UI.showMsg(
@@ -126,6 +166,7 @@ const main = async () => {
           projects={allProjects}
           labels={allLabels}
           uuid={e.uuid}
+          pageName={pageName}
         />,
       )
       logseq.showMainUI()

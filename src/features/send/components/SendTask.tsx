@@ -10,6 +10,8 @@ import {
   Select,
   Space,
   Stack,
+  Switch,
+  Text,
   TextInput,
   Title,
 } from '@mantine/core'
@@ -24,6 +26,7 @@ interface SendTaskProps {
   projects: string[]
   labels: string[]
   uuid: string
+  pageName?: string
 }
 
 export interface FormInput {
@@ -33,6 +36,7 @@ export interface FormInput {
   priority: string
   due: string
   uuid: string
+  includePageLink: boolean
 }
 
 export const SendTask = ({
@@ -40,7 +44,15 @@ export const SendTask = ({
   projects,
   labels,
   uuid,
+  pageName,
 }: SendTaskProps) => {
+  const settings = (logseq.settings ?? {}) as Record<string, unknown>
+  const defaultProject = (settings.sendDefaultProject as string) ?? '--- ---'
+  const defaultLabel = (settings.sendDefaultLabel as string) ?? '--- ---'
+  const defaultLabels = defaultLabel !== '--- ---' ? [defaultLabel] : []
+  const defaultDue = settings.sendDefaultDeadline ? 'today' : ''
+  const includePageLinkDefault = Boolean(settings.sendIncludePageLink)
+
   const {
     control,
     handleSubmit,
@@ -49,21 +61,23 @@ export const SendTask = ({
   } = useForm<FormInput>({
     defaultValues: {
       task: content.trim(),
-      project: '--- ---',
-      priority: '',
+      project: projects.includes(defaultProject) ? defaultProject : '--- ---',
+      label: defaultLabels,
+      priority: '1',
       uuid: uuid,
-      due: '',
+      due: defaultDue,
+      includePageLink: includePageLinkDefault,
     },
   })
 
   const submitTask = useCallback(
     (data: FormInput) => {
-      sendTask(data)
+      sendTask(data, { pageName })
       logseq.UI.showMsg('Task sent to Todoist', 'success', { timeout: 3000 })
       reset()
       logseq.hideMainUI()
     },
-    [uuid],
+    [uuid, pageName],
   )
 
   return (
@@ -81,6 +95,11 @@ export const SendTask = ({
           <Pill size="xl" color="darkteal" my="0.5rem">
             {content}
           </Pill>
+          {pageName && (
+            <Text size="sm" c="dimmed">
+              Current page: {pageName}
+            </Text>
+          )}
           <Space h="1rem" />
           <form onSubmit={handleSubmit(submitTask)}>
             <Stack gap="1rem">
@@ -107,6 +126,17 @@ export const SendTask = ({
                     label="Label"
                     placeholder="Select Label"
                     data={labels}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="includePageLink"
+                render={({ field }) => (
+                  <Switch
+                    checked={field.value}
+                    label="Include current page name"
+                    onChange={(event) => field.onChange(event.currentTarget.checked)}
                   />
                 )}
               />
