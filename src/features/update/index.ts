@@ -1,4 +1,4 @@
-import { TodoistApi } from "@doist/todoist-api-typescript";
+import { TodoistApi, TodoistRequestError } from "@doist/todoist-api-typescript";
 
 import { extractPriorityMarker, extractSchedulingMarkers, removeTaskFlags } from "../send";
 
@@ -50,7 +50,7 @@ export const sanitizeBlockContent = (input: string): string => {
       continue;
     }
 
-    if (trimmed.match(/^todoistid::/i) || trimmed.match(/^todoist_url::/i)) {
+    if (trimmed.match(/^todoistid::/i) || trimmed.match(/^todoist[-_]url::/i)) {
       continue;
     }
 
@@ -60,28 +60,38 @@ export const sanitizeBlockContent = (input: string): string => {
   return cleaned.join("\n").trim();
 };
 
-export const updateTaskFromBlock = async (uuid: string) => {
+export type UpdateTaskResult =
+  | "updated"
+  | "invalid-token"
+  | "missing-block"
+  | "not-linked"
+  | "empty"
+  | "no-content"
+  | "deleted"
+  | "error";
+
+export const updateTaskFromBlock = async (uuid: string): Promise<UpdateTaskResult> => {
   if (!logseq.settings || logseq.settings.apiToken === "") {
     await logseq.UI.showMsg("Invalid API token", "error");
-    return;
+    return "invalid-token";
   }
 
   const block = await logseq.Editor.getBlock(uuid, { includeChildren: false });
   if (!block) {
     await logseq.UI.showMsg("Unable to locate block", "error");
-    return;
+    return "missing-block";
   }
 
   const todoistId = (block.properties as Record<string, string> | undefined)?.todoistid;
   if (!todoistId) {
     await logseq.UI.showMsg("Block is not linked to a Todoist task", "warning");
-    return;
+    return "not-linked";
   }
 
   const rawContent = (block.content ?? "").trim();
   if (rawContent.length === 0) {
     await logseq.UI.showMsg("Cannot update empty task", "error");
-    return;
+    return "empty";
   }
 
   const api = new TodoistApi(logseq.settings.apiToken as string);
@@ -92,7 +102,7 @@ export const updateTaskFromBlock = async (uuid: string) => {
   const sanitized = sanitizeBlockContent(rawContent);
   if (sanitized.length === 0) {
     await logseq.UI.showMsg("No task content available to sync", "warning");
-    return;
+    return "no-content";
   }
 
   const cleanedTask = removeTaskFlags(sanitized);
@@ -127,10 +137,22 @@ export const updateTaskFromBlock = async (uuid: string) => {
   try {
     await api.updateTask(todoistId, payload as Parameters<TodoistApi["updateTask"]>[1]);
     const taskUrl = `todoist://task?id=${todoistId}`;
-    await logseq.Editor.upsertBlockProperty(uuid, "todoist_url", taskUrl);
+    await logseq.Editor.upsertBlockProperty(uuid, "todoist-url", taskUrl);
     await logseq.UI.showMsg("Todoist task updated", "success", { timeout: 2000 });
+    return "updated";
   } catch (error) {
     console.error(error);
+    if (error instanceof TodoistRequestError && error.httpStatusCode === 404) {
+      await logseq.Editor.removeBlockProperty(uuid, "todoistid");
+      await logseq.Editor.removeBlockProperty(uuid, "todoist-url");
+      await logseq.UI.showMsg(
+        "Todoist task no longer exists. Link removed so you can recreate it.",
+        "warning",
+        { timeout: 3000 },
+      );
+      return "deleted";
+    }
     await logseq.UI.showMsg(`Update failed: ${(error as Error).message}`, "error");
+    return "error";
   }
 };

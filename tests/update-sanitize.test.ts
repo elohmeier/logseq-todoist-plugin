@@ -17,6 +17,17 @@ describe("sanitizeBlockContent", () => {
     expect(result).toBe("TODO Check status\nNotes here");
   });
 
+  it("removes todoist-url property (hyphenated format)", () => {
+    const input = `TODO Check status
+ todoistid:: 123
+ todoist-url:: todoist://task?id=123
+ Notes here`;
+
+    const result = sanitizeBlockContent(input);
+
+    expect(result).toBe("TODO Check status\nNotes here");
+  });
+
   it("returns trimmed content when nothing to remove", () => {
     const input = "TODO Simple task   ";
     expect(sanitizeBlockContent(input)).toBe("TODO Simple task");

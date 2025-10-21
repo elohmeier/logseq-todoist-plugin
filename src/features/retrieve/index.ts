@@ -255,7 +255,7 @@ const buildProperties = (displayTask: DisplayTask, preferences: RenderPreference
   }
 
   if (showSet.has(MetadataOption.Url) && displayTask.source.url) {
-    properties.todoist_url = displayTask.source.url;
+    properties["todoist-url"] = displayTask.source.url;
   }
 
   return properties;

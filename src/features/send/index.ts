@@ -79,6 +79,23 @@ export const todoistPriorityToMarker = (priority: number): string | null => {
   return TODOIST_PRIORITY_TO_MARKER[priority] ?? null;
 };
 
+export const resolveTaskContent = (
+  editingContent: string | null | undefined,
+  blockContent: string | null | undefined,
+): string => {
+  const candidate = typeof editingContent === "string" ? editingContent : "";
+  if (candidate.trim().length > 0) {
+    return candidate;
+  }
+
+  const fallback = typeof blockContent === "string" ? blockContent : "";
+  if (fallback.trim().length > 0) {
+    return fallback;
+  }
+
+  return "";
+};
+
 export const sendTask = async (
   { task, project, label, priority, due, uuid, includePageLink }: FormInput,
   options?: { pageName?: string },
@@ -134,7 +151,7 @@ export const sendTask = async (
     const res = await api.addTask(sendObj);
     const taskUrl = `todoist://task?id=${res.id}`;
     await logseq.Editor.upsertBlockProperty(uuid, "todoistid", res.id);
-    await logseq.Editor.upsertBlockProperty(uuid, "todoist_url", taskUrl);
+    await logseq.Editor.upsertBlockProperty(uuid, "todoist-url", taskUrl);
     logseq.UI.showMsg("Task sent successfully", "success", { timeout: 3000 });
     return res;
   } catch (error) {

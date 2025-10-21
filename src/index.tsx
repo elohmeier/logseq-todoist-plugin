@@ -6,9 +6,9 @@ import { getAllLabels, getAllProjects } from "./features/helpers";
 import { parseQuery } from "./features/query";
 import { retrieveTasks, runQuery } from "./features/retrieve";
 import { insertTasksIntoGraph } from "./features/retrieve/insert-tasks-into-graph";
-import { sendTask } from "./features/send";
+import { resolveTaskContent, sendTask } from "./features/send";
 import { SendTask } from "./features/send/components/SendTask";
-import { updateTaskFromBlock } from "./features/update";
+import { updateTaskFromBlock,UpdateTaskResult } from "./features/update";
 import handleListeners from "./handleListeners";
 import { callSettings } from "./settings";
 
@@ -94,41 +94,34 @@ const main = async () => {
   if (!el) return;
   const root = createRoot(el);
 
-  logseq.Editor.registerSlashCommand(
-    "Todoist: Send Task (manual)",
-    async (e) => {
-      const content = await logseq.Editor.getEditingBlockContent();
-      if (content.length === 0) {
-        logseq.UI.showMsg("Unable to send empty task", "error");
-        return;
+  const syncTaskForBlock = async (
+    uuid: string,
+    options?: { forceManual?: boolean; skipUpdate?: boolean },
+  ) => {
+    if (!logseq.settings || logseq.settings.apiToken === "") {
+      await logseq.UI.showMsg("Invalid API token", "error");
+      return;
+    }
+
+    const block = await logseq.Editor.getBlock(uuid, { includeChildren: false });
+    if (!block) {
+      await logseq.UI.showMsg("Unable to locate block", "error");
+      return;
+    }
+
+    const todoistId = (block.properties as Record<string, string> | undefined)?.todoistid;
+    if (!options?.skipUpdate && todoistId) {
+      const result: UpdateTaskResult = await updateTaskFromBlock(uuid);
+      if (result === "deleted") {
+        await syncTaskForBlock(uuid, { forceManual: true, skipUpdate: true });
       }
-      const page = await logseq.Editor.getCurrentPage();
-      const msgKey = await logseq.UI.showMsg(
-        "Getting projects and labels",
-        "success",
-      );
-      const allProjects = await getAllProjects();
-      const allLabels = await getAllLabels();
-      logseq.UI.closeMsg(msgKey);
+      return;
+    }
 
-      root.render(
-        <SendTask
-          key={e.uuid}
-          content={content}
-          projects={allProjects}
-          labels={allLabels}
-          uuid={e.uuid}
-          pageName={(page?.originalName ?? page?.name) as string | undefined}
-        />,
-      );
-      logseq.showMainUI();
-    },
-  );
-
-  logseq.Editor.registerSlashCommand("Todoist: Send Task", async (e) => {
-    const content = await logseq.Editor.getEditingBlockContent();
-    if (content.length === 0) {
-      logseq.UI.showMsg("Unable to send empty task", "error");
+    const editingContent = await logseq.Editor.getEditingBlockContent();
+    const resolvedContent = resolveTaskContent(editingContent, block.content);
+    if (resolvedContent.trim().length === 0) {
+      await logseq.UI.showMsg("Unable to send empty task", "error");
       return;
     }
 
@@ -136,47 +129,53 @@ const main = async () => {
     const pageName = (page?.originalName ?? page?.name) as string | undefined;
     const includePageLink = Boolean(logseq.settings?.sendIncludePageLink);
 
-    // If default project set, don't show popup
-    if (logseq.settings!.sendDefaultProject !== "--- ---") {
+    if (!options?.forceManual && logseq.settings!.sendDefaultProject !== "--- ---") {
       await sendTask(
         {
-          task: content,
+          task: resolvedContent,
           project: logseq.settings!.sendDefaultProject as string,
           label: [logseq.settings!.sendDefaultLabel as string],
           due: "",
           priority: "",
-          uuid: e.uuid,
+          uuid,
           includePageLink,
         },
         { pageName },
       );
-    } else {
-      // If no default project set, show popup
-      const msgKey = await logseq.UI.showMsg(
-        "Getting projects and labels",
-        "success",
-      );
-      const allProjects = await getAllProjects();
-      const allLabels = await getAllLabels();
-      logseq.UI.closeMsg(msgKey);
-
-      root.render(
-        <SendTask
-          key={e.uuid}
-          content={content}
-          projects={allProjects}
-          labels={allLabels}
-          uuid={e.uuid}
-          pageName={pageName}
-        />,
-      );
-      logseq.showMainUI();
+      return;
     }
+
+    const msgKey = await logseq.UI.showMsg(
+      "Getting projects and labels",
+      "success",
+    );
+    const allProjects = await getAllProjects();
+    const allLabels = await getAllLabels();
+    logseq.UI.closeMsg(msgKey);
+
+    root.render(
+      <SendTask
+        key={uuid}
+        content={resolvedContent}
+        projects={allProjects}
+        labels={allLabels}
+        uuid={uuid}
+        pageName={pageName}
+      />,
+    );
+    logseq.showMainUI();
+  };
+
+  logseq.Editor.registerSlashCommand("Todoist: Sync Task", async (e) => {
+    await syncTaskForBlock(e.uuid);
   });
 
-  logseq.Editor.registerSlashCommand("Todoist: Update Task", async (e) => {
-    await updateTaskFromBlock(e.uuid);
-  });
+  logseq.Editor.registerSlashCommand(
+    "Todoist: Send Task (manual)",
+    async (e) => {
+      await syncTaskForBlock(e.uuid, { forceManual: true });
+    },
+  );
 };
 
 logseq.ready(main).catch(console.error);
