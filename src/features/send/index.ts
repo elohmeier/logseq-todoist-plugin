@@ -13,6 +13,30 @@ export const removeTaskFlags = (content: string): string => {
   return content
 }
 
+const DEADLINE_REGEX = /^\s*DEADLINE:\s*<(\d{4})-(\d{2})-(\d{2})/i
+
+export const extractDeadline = (content: string) => {
+  let deadlineDate: string | null = null
+  const cleanedLines: string[] = []
+
+  for (const line of content.split(/\n+/)) {
+    const trimmed = line.trimEnd()
+    const match = trimmed.match(DEADLINE_REGEX)
+    if (match) {
+      const [, year, month, day] = match
+      deadlineDate = `${year}-${month}-${day}`
+      continue
+    }
+    cleanedLines.push(trimmed)
+  }
+
+  const cleanedContent = cleanedLines.join('\n').trim()
+  return {
+    content: cleanedContent.length > 0 ? cleanedContent : content.trim(),
+    deadlineDate,
+  }
+}
+
 export const sendTask = async (
   { task, project, label, priority, due, uuid, includePageLink }: FormInput,
   options?: { pageName?: string },
@@ -36,15 +60,30 @@ export const sendTask = async (
     descriptionParts.push(`Page: [[${options.pageName}]]`)
   }
 
-  const sendObj = {
-    content: removeTaskFlags(task),
+  const cleanedTask = removeTaskFlags(task)
+  const { content: taskWithoutDeadline, deadlineDate } = extractDeadline(cleanedTask)
+
+  const sendObj: Parameters<TodoistApi['addTask']>[0] = {
+    content: taskWithoutDeadline,
     description: descriptionParts.join('\n'),
-    ...(project !== '--- ---' && { projectId: getIdFromString(project) }),
-    ...(label.length > 0 && label[0] !== '--- ---' && {
-      labels: label.map((l) => getNameFromString(l)),
-    }),
-    ...(priority && { priority: parseInt(priority) }),
-    ...(due !== '' && { dueString: due }),
+  }
+
+  if (project !== '--- ---') {
+    sendObj.projectId = getIdFromString(project)
+  }
+
+  if (label.length > 0 && label[0] !== '--- ---') {
+    sendObj.labels = label.map((l) => getNameFromString(l))
+  }
+
+  if (priority) {
+    sendObj.priority = parseInt(priority)
+  }
+
+  if (deadlineDate) {
+    sendObj.deadlineDate = deadlineDate
+  } else if (due !== '') {
+    sendObj.dueString = due
   }
 
   try {

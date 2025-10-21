@@ -8,7 +8,7 @@ import {
   QueryConfig,
   SortingOption,
 } from '../query'
-import { formatDueDate, formatDueIso, resolveDueDate } from './due-date'
+import { formatDueDate, formatDueIso, formatLogseqDeadline, resolveDueDate } from './due-date'
 import { type RenderPreferences,resolveRenderPreferences } from './render-options'
 import { createTaskBlock, type TaskBlock } from './task-block'
 import {
@@ -37,6 +37,7 @@ interface DisplayTask {
   dueIso: string | null
   dueHeading: string | null
   dueFlag: ReturnType<typeof formatDueDate>['flag']
+  dueDate: Date | null
   creationDate: string | null
 }
 
@@ -140,7 +141,14 @@ const buildDisplayTasks = async (
 
   return tasks.map((task, index): DisplayTask => {
     const annotation = annotations[index]!
-    const duePresentation = formatDueDate(task.due)
+    const dueSource = task.deadline
+      ? ({ date: task.deadline.date, datetime: null } as {
+          date?: string | null
+          datetime?: string | null
+        })
+      : task.due
+    const dueDate = resolveDueDate(dueSource)
+    const duePresentation = formatDueDate(dueSource)
     const labelNames = resolveLabelNames(task.labels, context.labels)
     const creationDate =
       preferences.appendCreationDateProperty && task.addedAt
@@ -154,9 +162,10 @@ const buildDisplayTasks = async (
       section: task.sectionId ? context.sections.get(task.sectionId) : undefined,
       labelNames,
       dueInline: duePresentation.inline,
-      dueIso: formatDueIso(task.due),
+      dueIso: formatDueIso(dueSource),
       dueHeading: duePresentation.heading,
       dueFlag: duePresentation.flag,
+      dueDate,
       creationDate,
     }
   })
@@ -176,11 +185,15 @@ const makeTaskContent = (displayTask: DisplayTask, preferences: RenderPreference
 
   const inlineMetadata: string[] = []
 
-  if ((preferences.showMetadata.has(MetadataOption.Due) || config?.show.has(MetadataOption.Due)) && displayTask.dueInline) {
+  const showSet = config?.show ?? preferences.showMetadata
+  const showDue = showSet.has(MetadataOption.Due)
+  const showProject = showSet.has(MetadataOption.Project)
+
+  if (showDue && displayTask.dueInline) {
     inlineMetadata.push(displayTask.dueInline)
   }
 
-  if ((preferences.showMetadata.has(MetadataOption.Project) || config?.show.has(MetadataOption.Project)) && displayTask.project) {
+  if (showProject && displayTask.project) {
     inlineMetadata.push(displayTask.project.name)
   }
 
@@ -188,11 +201,16 @@ const makeTaskContent = (displayTask: DisplayTask, preferences: RenderPreference
     content = `${content} — ${inlineMetadata.join(' | ')}`
   }
 
+  if (showDue && displayTask.dueDate) {
+    content = `${content}\nDEADLINE: ${formatLogseqDeadline(displayTask.dueDate)}`
+  }
+
   return content
 }
 
 const buildProperties = (displayTask: DisplayTask, preferences: RenderPreferences, config?: QueryConfig) => {
   const properties: Record<string, string> = {}
+  const showSet = config?.show ?? preferences.showMetadata
 
   if (preferences.appendTodoistIdProperty) {
     properties.todoistid = displayTask.source.id
@@ -210,15 +228,19 @@ const buildProperties = (displayTask: DisplayTask, preferences: RenderPreference
     properties.created = displayTask.creationDate
   }
 
-  if ((preferences.showMetadata.has(MetadataOption.Due) || config?.show.has(MetadataOption.Due)) && displayTask.dueIso) {
+  if (displayTask.source.deadline?.date) {
+    properties.todoist_deadline = displayTask.source.deadline.date
+  }
+
+  if (showSet.has(MetadataOption.Due) && displayTask.dueIso) {
     properties.todoist_due = displayTask.dueIso
   }
 
-  if ((preferences.showMetadata.has(MetadataOption.Description) || config?.show.has(MetadataOption.Description)) && displayTask.source.description) {
+  if (showSet.has(MetadataOption.Description) && displayTask.source.description) {
     properties.todoist_description = displayTask.source.description
   }
 
-  if ((preferences.showMetadata.has(MetadataOption.Project) || config?.show.has(MetadataOption.Project)) && displayTask.project) {
+  if (showSet.has(MetadataOption.Project) && displayTask.project) {
     properties.todoist_project = displayTask.project.name
   }
 
@@ -226,11 +248,11 @@ const buildProperties = (displayTask: DisplayTask, preferences: RenderPreference
     properties.todoist_section = displayTask.section.name
   }
 
-  if ((preferences.showMetadata.has(MetadataOption.Labels) || config?.show.has(MetadataOption.Labels)) && displayTask.labelNames.length > 0) {
+  if (showSet.has(MetadataOption.Labels) && displayTask.labelNames.length > 0) {
     properties.todoist_labels = displayTask.labelNames.join(', ')
   }
 
-  if ((preferences.showMetadata.has(MetadataOption.Url) || config?.show.has(MetadataOption.Url)) && displayTask.source.url) {
+  if (showSet.has(MetadataOption.Url) && displayTask.source.url) {
     properties.todoist_url = displayTask.source.url
   }
 
@@ -244,8 +266,8 @@ const sortByOptions = (tasks: DisplayTask[], sorting: SortingOption[]): DisplayT
     switch (opt) {
       case SortingOption.DateAscending:
         clone.sort((a, b) => {
-          const aDue = resolveDueDate(a.source.due)
-          const bDue = resolveDueDate(b.source.due)
+          const aDue = a.dueDate
+          const bDue = b.dueDate
           if (!aDue && !bDue) return 0
           if (!aDue) return 1
           if (!bDue) return -1
@@ -254,8 +276,8 @@ const sortByOptions = (tasks: DisplayTask[], sorting: SortingOption[]): DisplayT
         break
       case SortingOption.DateDescending:
         clone.sort((a, b) => {
-          const aDue = resolveDueDate(a.source.due)
-          const bDue = resolveDueDate(b.source.due)
+          const aDue = a.dueDate
+          const bDue = b.dueDate
           if (!aDue && !bDue) return 0
           if (!aDue) return 1
           if (!bDue) return -1

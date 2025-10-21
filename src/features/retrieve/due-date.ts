@@ -96,8 +96,17 @@ export const formatDueDate = (due: { date?: string | null; datetime?: string | n
     inlineParts.push(descriptor)
   }
 
-  const inline =
-    inlineParts.length > 0 ? `${inlineParts.join(' • ')} @ ${timePart}` : `@ ${timePart}`
+  const includeTime = Boolean(due?.datetime)
+
+  let inline: string | null
+  if (inlineParts.length === 0) {
+    inline = includeTime ? `@ ${timePart}` : null
+  } else {
+    inline = inlineParts.join(' • ')
+    if (includeTime) {
+      inline = `${inline} @ ${timePart}`
+    }
+  }
   const heading = descriptor ? `${datePart} · ${descriptor}` : datePart
 
   return {
@@ -113,4 +122,14 @@ export const formatDueIso = (due: { date?: string | null; datetime?: string | nu
     return null
   }
   return dueDate.toISOString()
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
+export const formatLogseqDeadline = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  const weekday = WEEKDAYS[date.getDay()]
+  return `<${year}-${month}-${day} ${weekday}>`
 }
