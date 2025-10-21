@@ -1,7 +1,7 @@
 export interface TaskBlock {
-  content: string
-  children: TaskBlock[]
-  properties?: Record<string, string>
+  content: string;
+  children: TaskBlock[];
+  properties?: Record<string, string>;
 }
 
 export const createTaskBlock = (
@@ -12,4 +12,4 @@ export const createTaskBlock = (
   content,
   children,
   ...(properties ? { properties } : {}),
-})
+});

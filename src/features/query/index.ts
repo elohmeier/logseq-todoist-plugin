@@ -1,2 +1,2 @@
-export { parseQuery } from './parser'
-export * from './types'
+export { parseQuery } from "./parser";
+export * from "./types";

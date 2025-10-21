@@ -1,15 +1,15 @@
 export default function handleListeners() {
-  //ESC
+  // ESC
   document.addEventListener(
-    'keydown',
-    function (e) {
-      if (e.key === 'Escape') {
-        logseq.hideMainUI({ restoreEditingCursor: true })
+    "keydown",
+    function(e) {
+      if (e.key === "Escape") {
+        logseq.hideMainUI({ restoreEditingCursor: true });
       }
-      e.stopPropagation()
+      e.stopPropagation();
     },
     false,
-  )
+  );
 
   // Click
   // document.addEventListener("click", (e) => {

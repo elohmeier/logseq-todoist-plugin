@@ -1,144 +1,144 @@
-type DueFlag = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'none'
+type DueFlag = "overdue" | "today" | "tomorrow" | "upcoming" | "none";
 
 export interface DuePresentation {
-  inline: string | null
-  heading: string | null
-  flag: DueFlag
+  inline: string | null;
+  heading: string | null;
+  flag: DueFlag;
 }
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-})
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+});
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: 'numeric',
-  minute: '2-digit',
-})
+  hour: "numeric",
+  minute: "2-digit",
+});
 
-const relativeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+const relativeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
 const toStartOfDay = (value: Date) => {
-  const clone = new Date(value.getTime())
-  clone.setHours(0, 0, 0, 0)
-  return clone
-}
+  const clone = new Date(value.getTime());
+  clone.setHours(0, 0, 0, 0);
+  return clone;
+};
 
 const parseDate = (value: string | null | undefined): Date | null => {
   if (!value) {
-    return null
+    return null;
   }
 
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
-}
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
 
 const differenceInDays = (target: Date, base: Date) => {
-  const diff = toStartOfDay(target).getTime() - toStartOfDay(base).getTime()
-  return Math.round(diff / (1000 * 60 * 60 * 24))
-}
+  const diff = toStartOfDay(target).getTime() - toStartOfDay(base).getTime();
+  return Math.round(diff / (1000 * 60 * 60 * 24));
+};
 
 const describeFlag = (flag: DueFlag, dueDate: Date | null) => {
   if (!dueDate) {
-    return null
+    return null;
   }
 
   switch (flag) {
-    case 'today':
-      return 'Today'
-    case 'tomorrow':
-      return 'Tomorrow'
-    case 'overdue': {
-      const diff = differenceInDays(dueDate, new Date())
-      return relativeFormatter.format(diff, 'day')
+    case "today":
+      return "Today";
+    case "tomorrow":
+      return "Tomorrow";
+    case "overdue": {
+      const diff = differenceInDays(dueDate, new Date());
+      return relativeFormatter.format(diff, "day");
     }
     default:
-      return null
+      return null;
   }
-}
+};
 
 export const resolveDueDate = (due: { date?: string | null; datetime?: string | null } | null) => {
   if (!due) {
-    return null
+    return null;
   }
 
-  return parseDate(due.datetime ?? due.date)
-}
+  return parseDate(due.datetime ?? due.date);
+};
 
 export const formatDueDate = (due: { date?: string | null; datetime?: string | null } | null): DuePresentation => {
-  const dueDate = resolveDueDate(due)
+  const dueDate = resolveDueDate(due);
   if (!dueDate) {
     return {
       inline: null,
       heading: null,
-      flag: 'none',
-    }
+      flag: "none",
+    };
   }
 
-  const diffDays = differenceInDays(dueDate, new Date())
+  const diffDays = differenceInDays(dueDate, new Date());
 
-  let flag: DueFlag = 'upcoming'
+  let flag: DueFlag = "upcoming";
   if (diffDays < 0) {
-    flag = 'overdue'
+    flag = "overdue";
   } else if (diffDays === 0) {
-    flag = 'today'
+    flag = "today";
   } else if (diffDays === 1) {
-    flag = 'tomorrow'
+    flag = "tomorrow";
   }
 
-  const datePart = dateFormatter.format(dueDate)
-  const timePart = timeFormatter.format(dueDate)
-  const descriptor = describeFlag(flag, dueDate)
+  const datePart = dateFormatter.format(dueDate);
+  const timePart = timeFormatter.format(dueDate);
+  const descriptor = describeFlag(flag, dueDate);
 
-  const inlineParts = [datePart]
+  const inlineParts = [datePart];
   if (descriptor) {
-    inlineParts.push(descriptor)
+    inlineParts.push(descriptor);
   }
 
-  const includeTime = Boolean(due?.datetime)
+  const includeTime = Boolean(due?.datetime);
 
-  let inline: string | null
+  let inline: string | null;
   if (inlineParts.length === 0) {
-    inline = includeTime ? `@ ${timePart}` : null
+    inline = includeTime ? `@ ${timePart}` : null;
   } else {
-    inline = inlineParts.join(' • ')
+    inline = inlineParts.join(" • ");
     if (includeTime) {
-      inline = `${inline} @ ${timePart}`
+      inline = `${inline} @ ${timePart}`;
     }
   }
-  const heading = descriptor ? `${datePart} · ${descriptor}` : datePart
+  const heading = descriptor ? `${datePart} · ${descriptor}` : datePart;
 
   return {
     inline,
     heading,
     flag,
-  }
-}
+  };
+};
 
 export const formatDueIso = (due: { date?: string | null; datetime?: string | null } | null) => {
-  const dueDate = resolveDueDate(due)
+  const dueDate = resolveDueDate(due);
   if (!dueDate) {
-    return null
+    return null;
   }
-  return dueDate.toISOString()
-}
+  return dueDate.toISOString();
+};
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-const pad = (value: number) => `${value}`.padStart(2, '0')
+const pad = (value: number) => `${value}`.padStart(2, "0");
 
 export const formatLogseqDate = (date: Date, includeTime: boolean): string => {
-  const year = date.getFullYear()
-  const month = pad(date.getMonth() + 1)
-  const day = pad(date.getDate())
-  const weekday = WEEKDAYS[date.getDay()]
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const weekday = WEEKDAYS[date.getDay()];
 
   if (!includeTime) {
-    return `<${year}-${month}-${day} ${weekday}>`
+    return `<${year}-${month}-${day} ${weekday}>`;
   }
 
-  const hours = pad(date.getHours())
-  const minutes = pad(date.getMinutes())
-  return `<${year}-${month}-${day} ${weekday} ${hours}:${minutes}>`
-}
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `<${year}-${month}-${day} ${weekday} ${hours}:${minutes}>`;
+};

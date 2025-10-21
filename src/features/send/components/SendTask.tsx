@@ -1,5 +1,5 @@
-import './style.css'
-import '@mantine/core/styles.css'
+import "./style.css";
+import "@mantine/core/styles.css";
 
 import {
   Button,
@@ -14,29 +14,29 @@ import {
   Text,
   TextInput,
   Title,
-} from '@mantine/core'
-import { useCallback } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+} from "@mantine/core";
+import { useCallback } from "react";
+import { Controller, useForm } from "react-hook-form";
 
-import { THEME } from '../../../constants'
-import { sendTask } from '..'
+import { THEME } from "../../../constants";
+import { sendTask } from "..";
 
 interface SendTaskProps {
-  content: string
-  projects: string[]
-  labels: string[]
-  uuid: string
-  pageName?: string
+  content: string;
+  projects: string[];
+  labels: string[];
+  uuid: string;
+  pageName?: string;
 }
 
 export interface FormInput {
-  task: string
-  project: string
-  label: string[]
-  priority: string
-  due: string
-  uuid: string
-  includePageLink: boolean
+  task: string;
+  project: string;
+  label: string[];
+  priority: string;
+  due: string;
+  uuid: string;
+  includePageLink: boolean;
 }
 
 export const SendTask = ({
@@ -46,11 +46,11 @@ export const SendTask = ({
   uuid,
   pageName,
 }: SendTaskProps) => {
-  const settings = (logseq.settings ?? {}) as Record<string, unknown>
-  const defaultProject = (settings.sendDefaultProject as string) ?? '--- ---'
-  const defaultLabel = (settings.sendDefaultLabel as string) ?? '--- ---'
-  const defaultLabels = defaultLabel !== '--- ---' ? [defaultLabel] : []
-  const includePageLinkDefault = Boolean(settings.sendIncludePageLink)
+  const settings = (logseq.settings ?? {}) as Record<string, unknown>;
+  const defaultProject = (settings.sendDefaultProject as string) ?? "--- ---";
+  const defaultLabel = (settings.sendDefaultLabel as string) ?? "--- ---";
+  const defaultLabels = defaultLabel !== "--- ---" ? [defaultLabel] : [];
+  const includePageLinkDefault = Boolean(settings.sendIncludePageLink);
 
   const {
     control,
@@ -60,24 +60,24 @@ export const SendTask = ({
   } = useForm<FormInput>({
     defaultValues: {
       task: content.trim(),
-      project: projects.includes(defaultProject) ? defaultProject : '--- ---',
+      project: projects.includes(defaultProject) ? defaultProject : "--- ---",
       label: defaultLabels,
-      priority: '',
+      priority: "",
       uuid: uuid,
-      due: '',
+      due: "",
       includePageLink: includePageLinkDefault,
     },
-  })
+  });
 
   const submitTask = useCallback(
     (data: FormInput) => {
-      sendTask(data, { pageName })
-      logseq.UI.showMsg('Task sent to Todoist', 'success', { timeout: 3000 })
-      reset()
-      logseq.hideMainUI()
+      sendTask(data, { pageName });
+      logseq.UI.showMsg("Task sent to Todoist", "success", { timeout: 3000 });
+      reset();
+      logseq.hideMainUI();
     },
     [uuid, pageName],
-  )
+  );
 
   return (
     <MantineProvider theme={THEME}>
@@ -105,7 +105,7 @@ export const SendTask = ({
               <Controller
                 control={control}
                 name="project"
-                rules={{ required: 'Please select a project' }}
+                rules={{ required: "Please select a project" }}
                 render={({ field }) => (
                   <Select
                     {...field}
@@ -147,7 +147,7 @@ export const SendTask = ({
                     {...field}
                     label="Priority (1: normal, 4: urgent)"
                     placeholder="Select Priority"
-                    data={['1', '2', '3', '4']}
+                    data={["1", "2", "3", "4"]}
                   />
                 )}
               />
@@ -171,5 +171,5 @@ export const SendTask = ({
         </Flex>
       </Flex>
     </MantineProvider>
-  )
-}
+  );
+};

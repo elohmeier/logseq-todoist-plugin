@@ -29,9 +29,9 @@ The plugin settings page contains other preferences to customise how you want ta
 The plugin automatically creates the following block properties: `todoistid`, `comments`, `atttachments`. If you wish to hide them, you can find the below flag in `config.edn` and make the changes:
 
 ```
- ;; hide specific properties for blocks
- ;; E.g. :block-hidden-properties #{:created-at :updated-at}
- :block-hidden-properties #{:todoistid :comments :attachments}
+;; hide specific properties for blocks
+;; E.g. :block-hidden-properties #{:created-at :updated-at}
+:block-hidden-properties #{:todoistid :comments :attachments}
 ```
 
 # Installation

@@ -1,8 +1,8 @@
-import { getNameFromString } from '../helpers'
-import type { TaskBlock } from './task-block'
+import { getNameFromString } from "../helpers";
+import type { TaskBlock } from "./task-block";
 
 interface InsertOptions {
-  title?: string
+  title?: string;
 }
 
 export const insertTasksIntoGraph = async (
@@ -11,25 +11,25 @@ export const insertTasksIntoGraph = async (
   options?: InsertOptions,
 ) => {
   if (blocks.length === 0) {
-    return
+    return;
   }
 
-  await logseq.Editor.insertBatchBlock(uuid, blocks, { before: true })
+  await logseq.Editor.insertBatchBlock(uuid, blocks, { before: true });
 
-  const desiredTitle = options?.title?.trim()
+  const desiredTitle = options?.title?.trim();
 
   if (desiredTitle && desiredTitle.length > 0) {
-    await logseq.Editor.updateBlock(uuid, desiredTitle)
-    return
+    await logseq.Editor.updateBlock(uuid, desiredTitle);
+    return;
   }
 
   if (logseq.settings?.projectNameAsParentBlk) {
-    const fallback = getNameFromString(logseq.settings!.retrieveDefaultProject as string)
+    const fallback = getNameFromString(logseq.settings!.retrieveDefaultProject as string);
     if (fallback && fallback.length > 0) {
-      await logseq.Editor.updateBlock(uuid, fallback)
-      return
+      await logseq.Editor.updateBlock(uuid, fallback);
+      return;
     }
   }
 
-  await logseq.Editor.removeBlock(uuid)
-}
+  await logseq.Editor.removeBlock(uuid);
+};

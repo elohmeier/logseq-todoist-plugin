@@ -1,28 +1,28 @@
 export enum GroupingOption {
-  Hierarchy = 'hierarchy',
-  Project = 'project',
-  Section = 'section',
-  DueDate = 'due',
-  Labels = 'labels',
-  Priority = 'priority',
+  Hierarchy = "hierarchy",
+  Project = "project",
+  Section = "section",
+  DueDate = "due",
+  Labels = "labels",
+  Priority = "priority",
 }
 
 export enum SortingOption {
-  TodoistOrder = 'order',
-  DateAscending = 'date',
-  DateDescending = 'dateDescending',
-  PriorityAscending = 'priority',
-  PriorityDescending = 'priorityDescending',
-  AddedAscending = 'dateAdded',
-  AddedDescending = 'dateAddedDescending',
+  TodoistOrder = "order",
+  DateAscending = "date",
+  DateDescending = "dateDescending",
+  PriorityAscending = "priority",
+  PriorityDescending = "priorityDescending",
+  AddedAscending = "dateAdded",
+  AddedDescending = "dateAddedDescending",
 }
 
 export enum MetadataOption {
-  Due = 'due',
-  Description = 'description',
-  Labels = 'labels',
-  Project = 'project',
-  Url = 'url',
+  Due = "due",
+  Description = "description",
+  Labels = "labels",
+  Project = "project",
+  Url = "url",
 }
 
 export interface QueryConfig {
